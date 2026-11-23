@@ -1,0 +1,19 @@
+#!/bin/bash
+# Lift-and-Shift: instala el inventario heredado exactamente como estaba on-premise.
+# La subred no tiene Internet: solo se usa python3, que ya viene en Amazon Linux 2023.
+set -euxo pipefail
+
+id ministore || useradd --system --no-create-home --shell /sbin/nologin ministore
+mkdir -p /opt/ministore
+
+cat > /opt/ministore/inventory_server.py <<'PYEOF'
+${app_code}
+PYEOF
+
+cat > /etc/systemd/system/ministore-inventory.service <<'UNITEOF'
+${service_unit}
+UNITEOF
+
+chown -R ministore:ministore /opt/ministore
+systemctl daemon-reload
+systemctl enable --now ministore-inventory.service

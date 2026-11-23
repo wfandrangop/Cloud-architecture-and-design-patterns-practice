@@ -1,0 +1,16 @@
+[Unit]
+Description=MiniStore - Inventario heredado (Lift-and-Shift)
+After=network.target
+
+[Service]
+Type=simple
+User=ministore
+WorkingDirectory=/opt/ministore
+Environment=INVENTORY_PORT=8081
+Environment=SLOW_DELAY_SECONDS=5
+ExecStart=/usr/bin/python3 /opt/ministore/inventory_server.py
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

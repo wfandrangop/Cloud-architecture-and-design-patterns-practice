@@ -1,0 +1,6 @@
+# Perfil local sin MySQL: SPRING_PROFILES_ACTIVE=local
+spring:
+  datasource:
+    url: jdbc:h2:mem:ministore;DB_CLOSE_DELAY=-1
+    username: sa
+    password: ""

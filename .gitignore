@@ -22,3 +22,23 @@
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
 replay_pid*
+
+# IntelliJ IDEA
+.idea/
+# Java / Maven
+target/
+
+# Node / Vite
+node_modules/
+dist/
+
+# Terraform (state y variables contienen secretos)
+.terraform/
+*.tfstate
+*.tfstate.*
+terraform.tfvars
+crash.log
+infra-terraform/build/
+
+# Llaves SSH del Learner Lab
+*.pem

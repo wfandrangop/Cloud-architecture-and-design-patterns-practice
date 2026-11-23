@@ -1,0 +1,9 @@
+# Copia este archivo a terraform.tfvars y completa los valores.
+# Tu IP publica: curl -s https://checkip.amazonaws.com
+my_ip_cidr  = "181.198.10.20/32"
+db_password = "CambiaEstaClave2026"
+
+# Opcionales
+# key_name           = "vockey"
+# java_desired_count = 2
+# java_image_tag     = "latest"

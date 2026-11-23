@@ -1,0 +1,79 @@
+server:
+  port: 8080
+  shutdown: graceful
+
+spring:
+  application:
+    name: order-service
+  datasource:
+    # En AWS: Terraform inyecta DB_URL / DB_USERNAME / DB_PASSWORD en la Task Definition de ECS
+    url: ${DB_URL:jdbc:mysql://localhost:3306/ministore?createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true&useSSL=false}
+    username: ${DB_USERNAME:admin}
+    password: ${DB_PASSWORD:ministore123}
+    hikari:
+      maximum-pool-size: 5
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: update
+  mvc:
+    problemdetails:
+      enabled: true
+
+ministore:
+  legacy:
+    # En AWS apunta al NLB de transito del VPC-Hub, que reenvia a 10.2.1.10:8081 (VPC-Spoke-Legacy)
+    base-url: ${LEGACY_INVENTORY_URL:http://localhost:8081}
+    connect-timeout: 1s
+    read-timeout: 3s   # red de seguridad del socket; el Timeout del patron (2s) lo impone el TimeLimiter
+  lambda:
+    function-name: ${RECEIPT_LAMBDA_NAME:}
+    region: ${AWS_REGION:us-east-1}
+
+# ---------------------------------------------------------------------------
+# Patrones de resiliencia (Resilience4j). Cadena: CircuitBreaker -> Retry -> TimeLimiter
+# ---------------------------------------------------------------------------
+resilience4j:
+  circuitbreaker:
+    instances:
+      legacyInventory:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 4                 # ventana de 4 ordenes
+        minimum-number-of-calls: 3             # evalua a partir de 3 ordenes
+        failure-rate-threshold: 50             # >= 50% de fallos -> OPEN
+        wait-duration-in-open-state: 15s       # 15 s en OPEN
+        automatic-transition-from-open-to-half-open-enabled: true
+        permitted-number-of-calls-in-half-open-state: 2
+        register-health-indicator: false       # un circuito OPEN NO debe tumbar el health check del ALB
+        ignore-exceptions:
+          - org.springframework.web.client.HttpClientErrorException
+  retry:
+    instances:
+      legacyInventory:
+        max-attempts: 3                        # 3 intentos en total
+        wait-duration: 500ms                   # 500 ms entre intentos
+        retry-exceptions:
+          - java.util.concurrent.TimeoutException
+          - java.io.IOException
+          - org.springframework.web.client.ResourceAccessException
+          - org.springframework.web.client.HttpServerErrorException
+  timelimiter:
+    instances:
+      legacyInventory:
+        timeout-duration: 2s                   # cada intento se corta a los 2 s
+        cancel-running-future: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,circuitbreakers,circuitbreakerevents,retries,retryevents,timelimiters,metrics
+  health:
+    circuitbreakers:
+      enabled: false
+
+logging:
+  pattern:
+    console: "%d{HH:mm:ss.SSS} %-5level [%thread] %logger{20} - %msg%n"
+  level:
+    com.ministore: INFO

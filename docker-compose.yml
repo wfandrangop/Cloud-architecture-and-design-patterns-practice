@@ -1,0 +1,50 @@
+# Entorno local que replica la arquitectura (sin AWS):
+#   frontend (Nginx :3000) -> backend (Spring Boot :8080) -> legacy (Python :8081) + mysql (:3306)
+# Uso:  docker compose up --build    ->  http://localhost:3000
+# Simular fallas: curl -X POST "http://localhost:8081/admin/simulate?mode=slow|down|normal"
+services:
+  legacy:
+    image: python:3.13-alpine
+    command: ["python", "/app/inventory_server.py"]
+    volumes:
+      - ./legacy-onpremise-app:/app:ro
+    environment:
+      SLOW_DELAY_SECONDS: "5"
+    ports:
+      - "8081:8081"
+
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: ministore123
+      MYSQL_DATABASE: ministore
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-pministore123"]
+      interval: 5s
+      retries: 20
+
+  backend:
+    build: ./backend-java
+    environment:
+      DB_URL: jdbc:mysql://mysql:3306/ministore?allowPublicKeyRetrieval=true&useSSL=false
+      DB_USERNAME: root
+      DB_PASSWORD: ministore123
+      LEGACY_INVENTORY_URL: http://legacy:8081
+    depends_on:
+      mysql:
+        condition: service_healthy
+      legacy:
+        condition: service_started
+    ports:
+      - "8080:8080"
+
+  frontend:
+    build: ./frontend-react
+    environment:
+      API_UPSTREAM: http://backend:8080
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
